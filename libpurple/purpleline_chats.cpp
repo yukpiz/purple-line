@@ -286,6 +286,8 @@ int PurpleLine::chat_send(int id, const char *message, PurpleMessageFlags flags)
         return 0;
     }
 
+	std::cout << "send chat!!!!!" << std::endl;
+	std::cout << message << std::endl;
     return send_message(purple_conversation_get_name(conv), message);
 }
 

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
+#include <regex.h>
 
 #include <time.h>
 
@@ -256,12 +257,22 @@ int PurpleLine::send_message(std::string to, const char *markup) {
     // Parse markup and send message as parts if it contains images
 
     bool any_sent = false;
+	std::cout << "debug ---> " << std::endl;
+	std::cout << to << std::endl;
+	std::cout << markup << std::endl;
 
     for (const char *p = markup; p && *p; ) {
         const char *start, *end;
+		const char *filestart, *fileend;
         GData *attributes;
+		GData *fileattributes;
 
+		std::cout << "Sending LINE Message..." << std::endl;
         bool img_found = purple_markup_find_tag("IMG", p, &start, &end, &attributes);
+		bool imgfile_found = purple_markup_find_tag("FILE", p, &filestart, &fileend, &fileattributes);
+		std::cout << "---Image file ? " << std::endl;
+		std::cout << img_found << std::endl;
+		std::cout << imgfile_found << std::endl;
 
         std::string text;
 
@@ -281,7 +292,7 @@ int PurpleLine::send_message(std::string to, const char *markup) {
         }
 
         // If the text is not all whitespace, send it as a text message
-        if (text.find_first_not_of("\t\n\r ") != std::string::npos)
+        if (text.find_first_not_of("\t\n\r ") != std::string::npos && !imgfile_found)
         {
             line::Message msg;
 
@@ -294,6 +305,46 @@ int PurpleLine::send_message(std::string to, const char *markup) {
 
             any_sent = true;
         }
+
+		if (imgfile_found) {
+			std::cout << "Start upload file!!" << std::endl;
+			char *path = (char *)g_datalist_get_data(&fileattributes, "path");
+			std::cout << path << std::endl;
+
+			gchar *data = NULL;
+			size_t len;
+			GError *err = NULL;
+
+			if (!g_file_get_contents(path, &data, &len, &err))
+			{
+				std::cout << "Error get file contents!!" << std::endl;
+				continue;
+			}
+			std::cout << "Success get file content!!" << std::endl;
+
+			PurpleStoredImage *img =
+				purple_imgstore_add(data, len, path);
+			if (!img)
+			{
+				std::cout << "Error image stored add!!" << std::endl;
+				continue;
+			}
+			std::cout << "Success image stored add!!" << std::endl;
+			std::string img_data(
+					(const char *)purple_imgstore_get_data(img),
+					purple_imgstore_get_size(img));
+
+            line::Message msg;
+            msg.contentType = line::ContentType::IMAGE;
+            msg.from = profile.mid;
+            msg.to = to;
+
+			send_message(msg, [this, img_data](line::Message &msg_back) {
+				upload_media(msg_back.id, "image", img_data);
+			});
+
+            any_sent = true;
+		}
 
         if (img_found) {
             // Image test
@@ -377,6 +428,10 @@ void PurpleLine::send_message(
 void PurpleLine::upload_media(std::string message_id, std::string type, std::string data) {
     std::string boundary;
 
+	std::cout << "Process of upload a image." << std::endl;
+	std::cout << message_id << std::endl;
+	std::cout << type << std::endl;
+
     do {
         gchar *random_string = purple_uuid_random();
         boundary = random_string;
@@ -384,6 +439,10 @@ void PurpleLine::upload_media(std::string message_id, std::string type, std::str
     } while (data.find(boundary) != std::string::npos);
 
     std::stringstream body;
+	std::cout << boundary << std::endl;
+	std::cout << message_id << std::endl;
+	std::cout << data.size() << std::endl;
+	std::cout << type << std::endl;
 
     body
         << "--" << boundary << "\r\n"

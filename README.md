@@ -1,8 +1,8 @@
 purple-line
 ===========
 
-It a forked of the http://altrepo.eu/git/purple-line .
-Thank you for it.
+It a forked of the http://altrepo.eu/git/purple-line .  
+Thank you for it.  
 
 libpurple (Pidgin, Finch) protocol plugin for [LINE](http://line.me/).
 
